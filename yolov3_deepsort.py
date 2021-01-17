@@ -13,6 +13,7 @@ from utils.parser import get_config
 from utils.log import get_logger
 from utils.io import write_results
 
+from hyperlpr import *
 
 class VideoTracker(object):
     def __init__(self, cfg, args, video_path):
@@ -37,6 +38,8 @@ class VideoTracker(object):
         self.detector = build_detector(cfg, use_cuda=use_cuda)
         self.deepsort = build_tracker(cfg, use_cuda=use_cuda)
         self.class_names = self.detector.class_names
+
+        self.car_infos = {}
 
     def __enter__(self):
         if self.args.cam != -1:
@@ -75,6 +78,12 @@ class VideoTracker(object):
     def run(self):
         results = []
         idx_frame = 0
+
+        canvas = np.zeros((768,1024,3), np.uint8)
+        car = cv2.imread('car.png')
+
+        loc = (0,0,car.shape[1],car.shape[0])
+
         while self.vdo.grab():
             idx_frame += 1
             if idx_frame % self.args.frame_interval:
@@ -82,6 +91,12 @@ class VideoTracker(object):
 
             start = time.time()
             _, ori_im = self.vdo.retrieve()
+            # ori_im = cv2.imread('detector/YOLOv3/demo/vlcsnap-2021-01-17-16h53m25s142.png')
+            ori_im = cv2.imread('/home/ren/Downloads/车牌识别摄像头/SB_A点识牌_20200812104336_鄂AAZ983_1.jpg')
+        
+            ori_im = canvas.copy()
+            ori_im[loc[1]:loc[1]+loc[3],loc[0]:loc[0]+loc[2]] = car
+            loc = (loc[0]+5,loc[1],loc[2],loc[3])
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
 
             # do detection
@@ -89,6 +104,9 @@ class VideoTracker(object):
 
             # select person class
             mask = cls_ids == 0
+
+            # select person class
+            mask = cls_ids == 2
 
             bbox_xywh = bbox_xywh[mask]
             # bbox dilation just in case bbox too small, delete this line if using a better pedestrian detector
@@ -105,6 +123,32 @@ class VideoTracker(object):
                 identities = outputs[:, -1]
                 ori_im = draw_boxes(ori_im, bbox_xyxy, identities)
 
+                # check first appearance
+                lps = HyperLPR_plate_recognition(ori_im)
+                infos = {}
+                for id, reid in enumerate(identities):
+                    # match license plate and car.
+                    result = None
+                    for lp in lps:
+                        bb = lp[2]
+                        xyxy = bbox_xyxy[id]
+                        if xyxy[0] < bb[0] and xyxy[1] < bb[1] and xyxy[2] > bb[2] and xyxy[3] > bb[3]:
+                            result = lp
+
+                    reid = str(reid)
+                    if reid in self.car_infos and self.car_infos[reid]:
+                        pass
+                    elif result:# notify top camera tracker
+                    # TODO:
+                        infos[reid] = result[0]
+                    if result:
+                        lc = result[2]
+                        cv2.putText(ori_im,result[0],(lc[0],lc[1]), cv2.FONT_HERSHEY_PLAIN, 2, [255,255,255], 2)
+
+
+                self.car_infos = infos
+
+
                 for bb_xyxy in bbox_xyxy:
                     bbox_tlwh.append(self.deepsort._xyxy_to_tlwh(bb_xyxy))
 
@@ -116,11 +160,11 @@ class VideoTracker(object):
                 cv2.imshow("test", ori_im)
                 cv2.waitKey(1)
 
-            if self.args.save_path:
-                self.writer.write(ori_im)
+            # if self.args.save_path:
+            #     self.writer.write(ori_im)
 
-            # save results
-            write_results(self.save_results_path, results, 'mot')
+            # # save results
+            # write_results(self.save_results_path, results, 'mot')
 
             # logging
             self.logger.info("time: {:.03f}s, fps: {:.03f}, detection numbers: {}, tracking numbers: {}" \

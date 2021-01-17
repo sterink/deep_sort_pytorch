@@ -1,0 +1,9 @@
+Q1: Object Tracking using OpenCV
+https://learnopencv.com/object-tracking-using-opencv-cpp-python/
+
+Q2: error from HyperLPR_plate_recognition(image) 
+*** AttributeError: module 'cv2.cv2' has no attribute 'estimateRigidTransform'
+https://github.com/szad670401/HyperLPR/issues/233
+
+Q3: Python+Opencv4点仿射变换
+https://blog.csdn.net/WZZ18191171661/article/details/99174861
