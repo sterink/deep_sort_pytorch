@@ -7,3 +7,6 @@ https://github.com/szad670401/HyperLPR/issues/233
 
 Q3: Python+Opencv4点仿射变换
 https://blog.csdn.net/WZZ18191171661/article/details/99174861
+
+Q4: deep_sort for traffic
+https://zhuanlan.zhihu.com/p/202993073?utm_source=wechat_timeline
